@@ -13,10 +13,18 @@ const initialState = {
   division: '',
   search: '',
   filterDivision: '',
-  error: '', // for validation error
+  errors: {
+    name: '',
+    age: '',
+    marks: ['', '', '', '', ''],
+  },
 };
 
-// function to calculate percentage & division
+// Validators
+const validateName = (name) => /^[A-Za-z ]+$/.test(name);
+const validateAge = (age) => /^\d+$/.test(age);
+const validateMark = (mark) => /^\d+$/.test(mark) && Number(mark) >= 0 && Number(mark) <= 100;
+
 const calculateResult = (marks) => {
   const total = marks.reduce((sum, mark) => sum + Number(mark || 0), 0);
   const percentage = total / marks.length;
@@ -28,100 +36,106 @@ const calculateResult = (marks) => {
   return { percentage: percentage.toFixed(2), division };
 };
 
-// validation function
-const validate = (state) => {
-  if (!/^[a-zA-Z\s]+$/.test(state.name)) {
-    return 'Name should contain only letters';
-  }
-  if (!/^\d+$/.test(state.age)) {
-    return 'Age should be a number';
-  }
-  for (let mark of state.marks) {
-    if (!/^\d+$/.test(mark) || Number(mark) > 100) {
-      return 'Marks should be numbers between 0 and 100';
-    }
-  }
-  return '';
-};
-
-const addOrUpdateRecord = (state) => {
-  const error = validate(state);
-  if (error) {
-    return { ...state, error };
-  }
-
-  const newMarks = state.marks.map((m) => parseInt(m) || 0);
-  const { percentage, division } = calculateResult(newMarks);
-  const newRecord = {
-    name: state.name,
-    age: state.age,
-    marks: newMarks,
-    percentage,
-    division,
-  };
-
-  const updatedRecords = [...state.records];
-  if (state.editingIndex !== null) {
-    updatedRecords[state.editingIndex] = newRecord;
-  } else {
-    updatedRecords.push(newRecord);
-  }
-
-  return {
-    ...state,
-    records: updatedRecords,
-    name: '',
-    age: '',
-    marks: ['', '', '', '', ''],
-    editingIndex: null,
-    percentage,
-    division,
-    error: '',
-  };
-};
-
-const editRecord = (state, index) => {
-  const record = state.records[index];
-  return {
-    ...state,
-    name: record.name,
-    age: record.age,
-    marks: record.marks.map((m) => m.toString()),
-    editingIndex: index,
-    percentage: record.percentage,
-    division: record.division,
-    error: '',
-  };
-};
-
-const deleteRecord = (state, index) => {
-  const updated = state.records.filter((_, i) => i !== index);
-  return { ...state, records: updated };
-};
-
-const clearAll = () => ({
-  ...initialState,
-  records: [],
-});
-
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_NAME':
-      return { ...state, name: action.payload };
+      return {
+        ...state,
+        name: action.payload,
+        errors: {
+          ...state.errors,
+          name: !validateName(action.payload) ? 'Only letters allowed' : '',
+        },
+      };
     case 'SET_AGE':
-      return { ...state, age: action.payload };
+      return {
+        ...state,
+        age: action.payload,
+        errors: {
+          ...state.errors,
+          age: !validateAge(action.payload) ? 'Enter a valid number' : '',
+        },
+      };
     case 'SET_MARK':
-      const newMarks = [...state.marks];
-      newMarks[action.payload.index] = action.payload.value;
-      return { ...state, marks: newMarks };
+      const updatedMarks = [...state.marks];
+      updatedMarks[action.payload.index] = action.payload.value;
+
+      const updatedMarkErrors = [...state.errors.marks];
+      updatedMarkErrors[action.payload.index] = !validateMark(action.payload.value)
+        ? 'Enter 0-100'
+        : '';
+
+      return {
+        ...state,
+        marks: updatedMarks,
+        errors: {
+          ...state.errors,
+          marks: updatedMarkErrors,
+        },
+      };
     case 'SUBMIT':
-      return addOrUpdateRecord(state);
+      const nameError = !validateName(state.name) ? 'Only letters allowed' : '';
+      const ageError = !validateAge(state.age) ? 'Enter a valid number' : '';
+      const markErrors = state.marks.map((m) =>
+        !validateMark(m) ? 'Enter 0-100' : ''
+      );
+
+      const hasError = nameError || ageError || markErrors.some((e) => e !== '') || state.marks.includes('');
+      if (hasError) {
+        return {
+          ...state,
+          errors: {
+            name: nameError,
+            age: ageError,
+            marks: markErrors,
+          },
+        };
+      }
+
+      const parsedMarks = state.marks.map((m) => parseInt(m) || 0);
+      const { percentage, division } = calculateResult(parsedMarks);
+      const newRecord = {
+        name: state.name,
+        age: state.age,
+        marks: parsedMarks,
+        percentage,
+        division,
+      };
+
+      const newRecords = [...state.records];
+      if (state.editingIndex !== null) {
+        newRecords[state.editingIndex] = newRecord;
+      } else {
+        newRecords.push(newRecord);
+      }
+
+      return {
+        ...initialState,
+        records: newRecords,
+      };
+
     case 'EDIT':
-      return editRecord(state, action.payload);
+      const rec = state.records[action.payload];
+      return {
+        ...state,
+        name: rec.name,
+        age: rec.age,
+        marks: rec.marks.map((m) => m.toString()),
+        editingIndex: action.payload,
+        percentage: rec.percentage,
+        division: rec.division,
+        errors: initialState.errors,
+      };
     case 'DELETE':
-      return deleteRecord(state, action.payload);
+      return {
+        ...state,
+        records: state.records.filter((_, i) => i !== action.payload),
+      };
     case 'CLEAR':
-      return clearAll();
+      return {
+        ...initialState,
+        records: state.records,
+      };
     case 'SET_SEARCH':
       return { ...state, search: action.payload };
     case 'SET_FILTER_DIVISION':
@@ -135,41 +149,49 @@ function StudentRecordsV2() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const filteredRecords = state.records.filter((record) => {
-    const matchesSearch = record.name.toLowerCase().includes(state.search.toLowerCase());
-    const matchesDivision = state.filterDivision ? record.division === state.filterDivision : true;
-    return matchesSearch && matchesDivision;
+    const matchSearch = record.name.toLowerCase().includes(state.search.toLowerCase());
+    const matchDivision = state.filterDivision ? record.division === state.filterDivision : true;
+    return matchSearch && matchDivision;
   });
 
   return (
     <div className="container">
       <div className="form-box">
-        <label>Student Name :</label>
+        <h3>Student Form</h3>
+
+        <label>Name:</label>
         <input
+          className={state.errors.name ? 'error-input' : ''}
           type="text"
           value={state.name}
           onChange={(e) => dispatch({ type: 'SET_NAME', payload: e.target.value })}
         />
+        {state.errors.name && <div className="error">{state.errors.name}</div>}
 
-        <label>Age :</label>
+        <label>Age:</label>
         <input
+          className={state.errors.age ? 'error-input' : ''}
           type="text"
           value={state.age}
           onChange={(e) => dispatch({ type: 'SET_AGE', payload: e.target.value })}
         />
+        {state.errors.age && <div className="error">{state.errors.age}</div>}
 
-        {subjects.map((subj, index) => (
-          <div key={index}>
-            <label>{subj} Marks :</label>
+        {subjects.map((subj, i) => (
+          <div key={i}>
+            <label>{subj}:</label>
             <input
+              className={state.errors.marks[i] ? 'error-input' : ''}
               type="text"
-              value={state.marks[index]}
+              value={state.marks[i]}
               onChange={(e) =>
                 dispatch({
                   type: 'SET_MARK',
-                  payload: { index, value: e.target.value },
+                  payload: { index: i, value: e.target.value },
                 })
               }
             />
+            {state.errors.marks[i] && <div className="error">{state.errors.marks[i]}</div>}
           </div>
         ))}
 
@@ -177,14 +199,10 @@ function StudentRecordsV2() {
           {state.editingIndex !== null ? 'Update' : 'Submit'}
         </button>
         <button className="clear-btn" onClick={() => dispatch({ type: 'CLEAR' })}>
-          Clear All
+          Clear
         </button>
 
-        {state.error && (
-          <div className="result red">{state.error}</div>
-        )}
-
-        {state.percentage && !state.error && (
+        {state.percentage && (
           <div className="result green">
             Percentage: {state.percentage}% | Division: {state.division}
           </div>
@@ -217,28 +235,24 @@ function StudentRecordsV2() {
               <tr>
                 <th>Name</th>
                 <th>Age</th>
-                {subjects.map((subj) => (
-                  <th key={subj}>{subj}</th>
-                ))}
+                {subjects.map((s, i) => <th key={i}>{s}</th>)}
                 <th>%</th>
                 <th>Division</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((record, index) => (
-                <tr key={index}>
-                  <td>{record.name}</td>
-                  <td>{record.age}</td>
-                  {record.marks.map((mark, i) => (
-                    <td key={i}>{mark}</td>
-                  ))}
-                  <td>{record.percentage}</td>
-                  <td>{record.division}</td>
+              {filteredRecords.map((rec, i) => (
+                <tr key={i}>
+                  <td>{rec.name}</td>
+                  <td>{rec.age}</td>
+                  {rec.marks.map((m, j) => <td key={j}>{m}</td>)}
+                  <td>{rec.percentage}</td>
+                  <td>{rec.division}</td>
                   <td>
                     <div className="btn-group">
-                      <button onClick={() => dispatch({ type: 'EDIT', payload: index })}>Edit</button>
-                      <button onClick={() => dispatch({ type: 'DELETE', payload: index })}>Delete</button>
+                      <button onClick={() => dispatch({ type: 'EDIT', payload: i })}>Edit</button>
+                      <button onClick={() => dispatch({ type: 'DELETE', payload: i })}>Delete</button>
                     </div>
                   </td>
                 </tr>
