@@ -2,7 +2,7 @@
 
 A responsive React app to manage student marks, calculate percentages, assign divisions, and perform CRUD — with real-time validation and a clean UI.
 
-[![Live Demo](https://student-reacords-v2.netlify.app/)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-blue?style=for-the-badge&logo=netlify)](https://student-reacords-v2.netlify.app/)
 
 ---
 
