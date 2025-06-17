@@ -12,6 +12,7 @@ A responsive React app to manage student marks, calculate percentages, assign di
 - 🔹 Auto-calculate percentage & division
 - 🔹 Inline input validation
 - 🔹 Filter by name & division
+- 🔹 **Tabular view powered by TanStack Table**
 - 🔹 Mobile + Desktop responsive
 
 ---
@@ -19,6 +20,7 @@ A responsive React app to manage student marks, calculate percentages, assign di
 ## ⚙️ Tech Stack
 
 - React + useReducer
+- **TanStack Table (React Table v8)**
 - CSS (fully responsive)
 - Vite + Netlify
 
