@@ -29,7 +29,6 @@ A responsive React app to manage student marks, calculate percentages, assign di
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/your-username/student-records-app.git
-cd student-records-app
+https://github.com/Purnav-18/Student_Record_V2-.gitcd student-records-app
 npm install
 npm run dev
