@@ -1,5 +1,10 @@
-import React, { useReducer } from 'react';
+import React, { useReducer, useMemo } from 'react';
 import './StudentRecordsV2.css';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+} from '@tanstack/react-table';
 
 const subjects = ['Math', 'Science', 'English', 'History', 'Computer'];
 
@@ -20,10 +25,10 @@ const initialState = {
   },
 };
 
-// Validators
 const validateName = (name) => /^[A-Za-z ]+$/.test(name);
 const validateAge = (age) => /^\d+$/.test(age);
-const validateMark = (mark) => /^\d+$/.test(mark) && Number(mark) >= 0 && Number(mark) <= 100;
+const validateMark = (mark) =>
+  /^\d+$/.test(mark) && Number(mark) >= 0 && Number(mark) <= 100;
 
 const calculateResult = (marks) => {
   const total = marks.reduce((sum, mark) => sum + Number(mark || 0), 0);
@@ -80,7 +85,8 @@ function reducer(state, action) {
         !validateMark(m) ? 'Enter 0-100' : ''
       );
 
-      const hasError = nameError || ageError || markErrors.some((e) => e !== '') || state.marks.includes('');
+      const hasError =
+        nameError || ageError || markErrors.some((e) => e !== '') || state.marks.includes('');
       if (hasError) {
         return {
           ...state,
@@ -113,7 +119,6 @@ function reducer(state, action) {
         ...initialState,
         records: newRecords,
       };
-
     case 'EDIT':
       const rec = state.records[action.payload];
       return {
@@ -152,6 +157,32 @@ function StudentRecordsV2() {
     const matchSearch = record.name.toLowerCase().includes(state.search.toLowerCase());
     const matchDivision = state.filterDivision ? record.division === state.filterDivision : true;
     return matchSearch && matchDivision;
+  });
+
+  const columns = useMemo(() => [
+    { header: 'Name', accessorKey: 'name' },
+    { header: 'Age', accessorKey: 'age' },
+    ...subjects.map((s, i) => ({
+      header: s,
+      accessorKey: `marks[${i}]`,
+    })),
+    { header: '%', accessorKey: 'percentage' },
+    { header: 'Division', accessorKey: 'division' },
+    {
+      header: 'Action',
+      cell: ({ row }) => (
+        <div className="btn-group">
+          <button onClick={() => dispatch({ type: 'EDIT', payload: row.index })}>Edit</button>
+          <button onClick={() => dispatch({ type: 'DELETE', payload: row.index })}>Delete</button>
+        </div>
+      ),
+    },
+  ], [dispatch]);
+
+  const table = useReactTable({
+    data: filteredRecords,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
   });
 
   return (
@@ -232,29 +263,27 @@ function StudentRecordsV2() {
         <div className="table-scroll">
           <table className="record-table">
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Age</th>
-                {subjects.map((s, i) => <th key={i}>{s}</th>)}
-                <th>%</th>
-                <th>Division</th>
-                <th>Action</th>
-              </tr>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
             <tbody>
-              {filteredRecords.map((rec, i) => (
-                <tr key={i}>
-                  <td>{rec.name}</td>
-                  <td>{rec.age}</td>
-                  {rec.marks.map((m, j) => <td key={j}>{m}</td>)}
-                  <td>{rec.percentage}</td>
-                  <td>{rec.division}</td>
-                  <td>
-                    <div className="btn-group">
-                      <button onClick={() => dispatch({ type: 'EDIT', payload: i })}>Edit</button>
-                      <button onClick={() => dispatch({ type: 'DELETE', payload: i })}>Delete</button>
-                    </div>
-                  </td>
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell ?? cell.column.columnDef.accessorKey, cell.getContext())}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
